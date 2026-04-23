@@ -5,6 +5,9 @@ type FromRepoInput = {
   branch?: string;
   projectName?: string;
   environmentName?: string;
+  port?: number;
+  startCommand?: string;
+  env?: Record<string, string>;
 };
 
 export type DeploymentStatus =
@@ -72,15 +75,27 @@ export async function fromRepo(input: FromRepoInput): Promise<FromRepoResult> {
     deployments?: Array<{ id: string }>;
     deploymentId?: string;
   };
-  const r = await call<Response>("POST", "/projects/from-repo", {
+  const env: Record<string, string> = {
+    NIXPACKS_NODE_VERSION: "20",
+    ...(input.env ?? {}),
+  };
+  const service: Record<string, unknown> = {
+    path: ".",
+    port: input.port ?? 8080,
+    env,
+  };
+  if (input.startCommand) service.startCommand = input.startCommand;
+
+  const r = await call<Response>("POST", "/projects/from-locusbuild", {
     name: input.projectName ?? `tryit-${Date.now().toString(36)}`,
     repo: input.repo,
     branch: input.branch ?? "main",
+    locusbuild: { services: { web: service } },
   });
   const svc = r.services?.[0];
   const dep = r.deployments?.[0]?.id ?? r.deploymentId;
   if (!r.project?.id || !r.environment?.id || !svc?.id || !dep) {
-    throw new Error("locus-build: from-repo response missing ids");
+    throw new Error("locus-build: from-locusbuild response missing ids");
   }
   return {
     projectId: r.project.id,

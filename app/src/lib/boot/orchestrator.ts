@@ -85,6 +85,9 @@ async function execute({ tryId, ownerSlug, repoSlug }: StartInput): Promise<void
         repo: slug,
         branch: recipe.sha,
         projectName: `tryit-${tryId.slice(0, 6)}`,
+        port: recipe.port,
+        startCommand: recipe.startCmd,
+        env: recipe.envDefaults,
       });
     }
   } catch (err) {
