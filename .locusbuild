@@ -1,0 +1,8 @@
+{
+  "services": {
+    "web": {
+      "path": "app",
+      "port": 8080
+    }
+  }
+}
