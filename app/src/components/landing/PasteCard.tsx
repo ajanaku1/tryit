@@ -233,22 +233,13 @@ export function PasteCard({ initial = "vercel/ai-chatbot" }: { initial?: string 
           <button
             type="button"
             className="btn btn-ghost"
-            onClick={preview}
-            disabled={pending}
-            aria-busy={phase === "previewing"}
-            title="Run the agent, see the Dockerfile it writes. No payment."
-          >
-            {phase === "previewing" ? "Reading repo…" : "Preview recipe"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
             onClick={submit}
             disabled={pending}
             aria-busy={pending && phase !== "previewing"}
+            title="Pay $0.05 USDC and actually deploy on BuildWithLocus"
           >
             {phase === "idle" || phase === "previewing"
-              ? "Boot it →"
+              ? "Boot it ($0.05)"
               : phase === "preflight"
                 ? "Checking repo…"
                 : phase === "awaiting-payment"
@@ -256,6 +247,16 @@ export function PasteCard({ initial = "vercel/ai-chatbot" }: { initial?: string 
                   : phase === "confirming"
                     ? "Confirming…"
                     : "Opening boot…"}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={preview}
+            disabled={pending}
+            aria-busy={phase === "previewing"}
+            title="Run the agent, see the Dockerfile it writes. No payment."
+          >
+            {phase === "previewing" ? "Reading repo…" : "Preview recipe →"}
           </button>
         </div>
       </div>
