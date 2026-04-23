@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+.next/
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Next.js
+.turbo/
+
+# Env
+.env
+.env.local
+.env*.local
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local DB
+/tmp/tryit-db.json
+
+# Deploy
+.vercel
+
+# Markdown: only README.md is tracked
+# (everything else: notes, prompts, submission drafts, security write-ups)
+*.md
+!README.md
+!/README.md
+
+# Local
+ai/
