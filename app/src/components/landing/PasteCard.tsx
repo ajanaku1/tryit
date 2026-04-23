@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
+import { RecipePreview } from "./RecipePreview";
 
 const GITHUB_SLUG_RE = /^([a-zA-Z0-9-]+)\/([a-zA-Z0-9._-]+)$/;
 
@@ -12,13 +13,29 @@ function parseRepo(input: string): { owner: string; repo: string } | null {
   return { owner: m[1], repo: m[2] };
 }
 
-type Phase = "idle" | "preflight" | "awaiting-payment" | "confirming" | "redirecting";
+type Phase = "idle" | "preflight" | "awaiting-payment" | "confirming" | "redirecting" | "previewing";
+
+type RecipeJson = {
+  ownerSlug: string;
+  repoSlug: string;
+  sha: string;
+  runtime: string;
+  buildCmd?: string;
+  startCmd: string;
+  port: number;
+  needsPostgres: boolean;
+  envDefaults: Record<string, string>;
+  dockerfileInline: string;
+  confidence: "high" | "medium" | "low";
+  source: string;
+};
 
 export function PasteCard({ initial = "vercel/ai-chatbot" }: { initial?: string }) {
   const router = useRouter();
   const [value, setValue] = useState(initial);
   const [err, setErr] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
+  const [recipe, setRecipe] = useState<RecipeJson | null>(null);
   const popupRef = useRef<Window | null>(null);
   const pollRef = useRef<number | null>(null);
 
@@ -61,6 +78,34 @@ export function PasteCard({ initial = "vercel/ai-chatbot" }: { initial?: string 
     [router, stopPolling],
   );
 
+  const preview = useCallback(async () => {
+    const parsed = parseRepo(value);
+    if (!parsed) {
+      setErr("That doesn't look like a GitHub repo. Try `owner/name`.");
+      return;
+    }
+    setErr(null);
+    setRecipe(null);
+    setPhase("previewing");
+    try {
+      const res = await fetch(
+        `/api/recipe/preview?owner=${encodeURIComponent(parsed.owner)}&repo=${encodeURIComponent(parsed.repo)}`,
+        { cache: "no-store" },
+      );
+      const data = (await res.json()) as RecipeJson & { error?: string; message?: string };
+      if (!res.ok) {
+        setErr(data.message ?? data.error ?? "Agent couldn't read this repo.");
+        setPhase("idle");
+        return;
+      }
+      setRecipe(data);
+      setPhase("idle");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+      setPhase("idle");
+    }
+  }, [value]);
+
   const submit = useCallback(async () => {
     const parsed = parseRepo(value);
     if (!parsed) {
@@ -68,6 +113,7 @@ export function PasteCard({ initial = "vercel/ai-chatbot" }: { initial?: string 
       return;
     }
     setErr(null);
+    setRecipe(null);
     setPhase("preflight");
 
     const popup = window.open(
@@ -183,24 +229,42 @@ export function PasteCard({ initial = "vercel/ai-chatbot" }: { initial?: string 
           <span className="kbd">↵</span>
           <span>to boot</span>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={submit}
-          disabled={pending}
-          aria-busy={pending}
-        >
-          {phase === "idle"
-            ? "Boot it →"
-            : phase === "preflight"
-              ? "Checking repo…"
-              : phase === "awaiting-payment"
-                ? "Paying in popup…"
-                : phase === "confirming"
-                  ? "Confirming…"
-                  : "Opening boot…"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={preview}
+            disabled={pending}
+            aria-busy={phase === "previewing"}
+            title="Run the agent, see the Dockerfile it writes. No payment."
+          >
+            {phase === "previewing" ? "Reading repo…" : "Preview recipe"}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={submit}
+            disabled={pending}
+            aria-busy={pending && phase !== "previewing"}
+          >
+            {phase === "idle" || phase === "previewing"
+              ? "Boot it →"
+              : phase === "preflight"
+                ? "Checking repo…"
+                : phase === "awaiting-payment"
+                  ? "Paying in popup…"
+                  : phase === "confirming"
+                    ? "Confirming…"
+                    : "Opening boot…"}
+          </button>
+        </div>
       </div>
+
+      {phase === "previewing" && (
+        <p className="mt-3 font-mono text-[12.5px]" style={{ color: "var(--fg-mute)" }}>
+          Fetching the repo tree and asking Llama 3.3 to write a recipe. ~10–20 seconds.
+        </p>
+      )}
 
       {phase === "awaiting-payment" && (
         <p className="mt-3 font-mono text-[12.5px]" style={{ color: "var(--fg-mute)" }}>
@@ -217,6 +281,7 @@ export function PasteCard({ initial = "vercel/ai-chatbot" }: { initial?: string 
           {err}
         </p>
       )}
+      {recipe && <RecipePreview recipe={recipe} onClose={() => setRecipe(null)} />}
     </div>
   );
 }
